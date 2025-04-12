@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+  <h1 class="text-center mb-4">Feedback Dashboard</h1>
+  
+  <!-- For Operators: A section to display the total count -->
+  <div class="row mb-4" id="operator-total-section" style="display: none;">
+    <div class="col text-center">
+      <h3>Total Feedback Entries: <span id="total-count">0</span></h3>
+    </div>
+  </div>
+  
+  <!-- For Superusers: A section to display totals per showroom (for pie chart) -->
+  <div class="row mb-4" id="superuser-total-section" style="display: none;">
+    <div class="col text-center">
+      <h3>Total Feedback Entries by Showroom:</h3>
+      <div id="showroom-totals"></div>
+    </div>
+  </div>
+  
+  <!-- Row for Charts -->
+  <div class="row">
+    <!-- Bar Chart Card -->
+    <div class="col-md-6">
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <canvas id="barChart" height="200"></canvas>
+        </div>
+        <div class="card-footer text-center" id="barChart-footer">
+          <!-- This label will change based on operator vs superuser -->
+        </div>
+      </div>
+    </div>
+    
+    <!-- Pie Chart Card -->
+    <div class="col-md-6">
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <canvas id="pieChart" height="200"></canvas>
+        </div>
+        <div class="card-footer text-center" id="pieChart-footer">
+          <!-- This label will change based on operator vs superuser -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Load Chart.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let barChart, pieChart;
+
+function updateDashboard() {
+    fetch('/feedback/dashboard-data/')
+        .then(response => response.json())
+        .then(data => {
+            // Check whether we're dealing with a superuser or an operator.
+            if (data.hasOwnProperty('showroom_totals')) {
+                // --- Superuser Branch ---
+                // Show the superuser totals section.
+                document.getElementById('superuser-total-section').style.display = 'block';
+                document.getElementById('operator-total-section').style.display = 'none';
+                
+                // Update the showroom totals display.
+                let totalsHtml = data.showroom_totals.map(item => 
+                    `<strong>${item.showroom__name}:</strong> ${item.total}`
+                ).join(' | ');
+                document.getElementById('showroom-totals').innerHTML = totalsHtml;
+                
+                // Prepare data for the grouped bar chart.
+                let grouped = {};
+                data.source_data.forEach(item => {
+                    let showroom = item.showroom__name;
+                    if (!grouped[showroom]) {
+                        grouped[showroom] = {};
+                    }
+                    grouped[showroom][item.source] = item.count;
+                });
+                
+                // Collect all unique sources.
+                let allSources = Array.from(new Set(data.source_data.map(item => item.source)));
+                let datasets = [];
+                Object.keys(grouped).forEach(showroom => {
+                    let counts = allSources.map(source => grouped[showroom][source] || 0);
+                    datasets.push({
+                        label: showroom,
+                        data: counts,
+                        backgroundColor: getRandomColor(),
+                        borderColor: getRandomColor(true),
+                        borderWidth: 1
+                    });
+                });
+                
+                // Update or create the bar chart.
+                if (!barChart) {
+                    const barCtx = document.getElementById('barChart').getContext('2d');
+                    barChart = new Chart(barCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: allSources,
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                } else {
+                    barChart.data.labels = allSources;
+                    barChart.data.datasets = datasets;
+                    barChart.update();
+                }
+                // Update or create the pie chart for showing total counts per showroom.
+                let pieLabels = data.showroom_totals.map(item => item.showroom__name);
+                let pieData = data.showroom_totals.map(item => item.total);
+                let pieColors = pieLabels.map(() => getRandomColor());
+                if (!pieChart) {
+                    const pieCtx = document.getElementById('pieChart').getContext('2d');
+                    pieChart = new Chart(pieCtx, {
+                        type: 'pie',
+                        data: {
+                            labels: pieLabels,
+                            datasets: [{
+                                label: 'Total Feedback',
+                                data: pieData,
+                                backgroundColor: pieColors,
+                                borderColor: pieColors.map(color => shadeColor(color, -20)),
+                                borderWidth: 1,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                } else {
+                    pieChart.data.labels = pieLabels;
+                    pieChart.data.datasets[0].data = pieData;
+                    pieChart.data.datasets[0].backgroundColor = pieColors;
+                    pieChart.data.datasets[0].borderColor = pieColors.map(color => shadeColor(color, -20));
+                    pieChart.update();
+                }
+                
+                // Update footer labels.
+                document.getElementById('barChart-footer').textContent = 'Feedback by Source & Showroom';
+                document.getElementById('pieChart-footer').textContent = 'Total Feedback Distribution Across Showrooms';
+            } else {
+                // --- Operator Branch ---
+                document.getElementById('operator-total-section').style.display = 'block';
+                document.getElementById('superuser-total-section').style.display = 'none';
+                
+                let labels = data.source_data.map(item => item.source);
+                let counts = data.source_data.map(item => item.count);
+                document.getElementById('total-count').textContent = data.total_count;
+                
+                // Create or update a simple bar chart.
+                if (!barChart) {
+                    const barCtx = document.getElementById('barChart').getContext('2d');
+                    barChart = new Chart(barCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Feedback Entries',
+                                data: counts,
+                                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                } else {
+                    barChart.data.labels = labels;
+                    barChart.data.datasets[0].data = counts;
+                    barChart.update();
+                }
+                
+                // Create or update a simple pie chart.
+                let pieColors = labels.map(() => getRandomColor());
+                if (!pieChart) {
+                    const pieCtx = document.getElementById('pieChart').getContext('2d');
+                    pieChart = new Chart(pieCtx, {
+                        type: 'pie',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Feedback Distribution',
+                                data: counts,
+                                backgroundColor: pieColors,
+                                borderColor: pieColors.map(color => shadeColor(color, -20)),
+                                borderWidth: 1,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                } else {
+                    pieChart.data.labels = labels;
+                    pieChart.data.datasets[0].data = counts;
+                    pieChart.data.datasets[0].backgroundColor = pieColors;
+                    pieChart.data.datasets[0].borderColor = pieColors.map(color => shadeColor(color, -20));
+                    pieChart.update();
+                }
+                // Update footer labels.
+                document.getElementById('barChart-footer').textContent = 'Feedback by Source';
+                document.getElementById('pieChart-footer').textContent = 'Feedback Distribution';
+            }
+        })
+        .catch(error => console.error('Error fetching dashboard data:', error));
+}
+
+// Utility functions for random colors and shading.
+function getRandomColor(bright = false) {
+    let letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * (bright ? 6 : 16))];
+    }
+    return color;
+}
+
+function shadeColor(color, percent) {
+    let f = parseInt(color.slice(1), 16),
+        t = percent < 0 ? 0 : 255,
+        p = Math.abs(percent) / 100;
+    let R = f >> 16,
+        G = (f >> 8) & 0x00FF,
+        B = f & 0x0000FF;
+    return "#" + (
+      0x1000000 +
+      (Math.round((t - R) * p) + R) * 0x10000 +
+      (Math.round((t - G) * p) + G) * 0x100 +
+      (Math.round((t - B) * p) + B)
+    ).toString(16).slice(1);
+}
+
+// Initial update and then poll every 5 seconds.
+updateDashboard();
+setInterval(updateDashboard, 60000);
+</script>
+{% endblock %}

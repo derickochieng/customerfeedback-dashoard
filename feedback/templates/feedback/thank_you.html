@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}Thank You{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body p-5 text-center">
+          <h1 class="card-title mb-4">Thank You for Your Feedback!</h1>
+          <a href="{% url 'feedback_form' %}" class="btn btn-primary btn-lg">
+            Submit More Feedback 
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

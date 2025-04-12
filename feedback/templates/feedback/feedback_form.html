@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Submit Feedback{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-body p-5">
+          <h3 class="card-title mb-4 text-center">We Value Your Feedback</h3>
+          <p class="text-center mb-4">Logged in as: <strong>{{ request.user.username }}</strong> (Showroom: <strong>{{ request.user.profile.showroom.name }}</strong>)</p>
+          <form method="post" novalidate>
+            {% csrf_token %}
+            <!-- Render the feedback form fields -->
+            {{ form.as_p }}
+            <div class="d-grid mt-4">
+              <button type="submit" class="btn btn-success btn-lg">Submit Feedback</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
