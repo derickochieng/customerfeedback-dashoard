@@ -1,26 +1,23 @@
 {% extends 'base.html' %}
 
-{% block title %}Submit Feedback{% endblock %}
+{% block title %}Feedback Form{% endblock %}
 
 {% block content %}
 <div class="container my-5">
-  <div class="row justify-content-center">
-    <div class="col-lg-8">
-      <div class="card shadow-sm">
-        <div class="card-body p-5">
-          <h3 class="card-title mb-4 text-center">We Value Your Feedback</h3>
-          <p class="text-center mb-4">Logged in as: <strong>{{ request.user.username }}</strong> (Showroom: <strong>{{ request.user.profile.showroom.name }}</strong>)</p>
-          <form method="post" novalidate>
-            {% csrf_token %}
-            <!-- Render the feedback form fields -->
-            {{ form.as_p }}
-            <div class="d-grid mt-4">
-              <button type="submit" class="btn btn-success btn-lg">Submit Feedback</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
+  <h1>Submit Feedback</h1>
+  <form method="post" id="feedbackForm">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Submit Feedback</button>
+  </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Optional: Client-side validation or additional JS can be added here.
+document.getElementById('feedbackForm').addEventListener('submit', function(e) {
+    // Example: You could add custom validation here.
+});
+</script>
 {% endblock %}

@@ -13,17 +13,17 @@
       Record customer insights and view your dashboard in real time.
     </p>
     {% if user.is_authenticated %}
-      <a class="btn btn-success btn-lg animate__animated animate__fadeInUp animate__delay-3s"
+      <a class="btn btn-success btn-lg animate__animated animate__fadeInUp animate__delay-2s"
          href="{% url 'dashboard' %}" role="button">
          Go to Dashboard
       </a>
   
-      <a class="btn btn-secondary btn-lg animate__animated animate__fadeInUp animate__delay-3s"
+      <a class="btn btn-secondary btn-lg animate__animated animate__fadeInUp animate__delay-2s"
          href="{% url 'login' %}" role="button">
          Switch Showroom
       </a>
     {% else %}
-      <a class="btn btn-primary btn-lg animate__animated animate__fadeInUp animate__delay-3s"
+      <a class="btn btn-primary btn-lg animate__animated animate__fadeInUp animate__delay-2s"
          href="{% url 'login' %}" role="button">
          Operator Login
       </a>

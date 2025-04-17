@@ -6,4 +6,6 @@ urlpatterns = [
     path('thank_you/', views.thank_you, name='thank_you'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('dashboard-data/', views.dashboard_data, name='dashboard_data'),
+    path('customer-lookup/', views.customer_lookup, name='customer_lookup'),
+
 ]

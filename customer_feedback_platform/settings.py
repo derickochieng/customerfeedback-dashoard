@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'channels',  # if you need for later real-time features
-    'feedback',
+   'feedback.apps.FeedbackConfig',
 ]
 
 MIDDLEWARE = [

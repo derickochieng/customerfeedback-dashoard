@@ -6,43 +6,81 @@
 <div class="container my-5">
   <h1 class="text-center mb-4">Feedback Dashboard</h1>
   
-  <!-- For Operators: A section to display the total count -->
-  <div class="row mb-4" id="operator-total-section" style="display: none;">
-    <div class="col text-center">
-      <h3>Total Feedback Entries: <span id="total-count">0</span></h3>
-    </div>
-  </div>
-  
-  <!-- For Superusers: A section to display totals per showroom (for pie chart) -->
-  <div class="row mb-4" id="superuser-total-section" style="display: none;">
-    <div class="col text-center">
-      <h3>Total Feedback Entries by Showroom:</h3>
-      <div id="showroom-totals"></div>
-    </div>
-  </div>
-  
-  <!-- Row for Charts -->
-  <div class="row">
-    <!-- Bar Chart Card -->
-    <div class="col-md-6">
-      <div class="card shadow-sm mb-4">
-        <div class="card-body">
-          <canvas id="barChart" height="200"></canvas>
+  <!-- Superuser Charts -->
+  <div id="superuser-charts" style="display: none;">
+    <div class="row">
+      <!-- Pie Chart: Overall "How Did You Hear About Us" -->
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <canvas id="pieChartFeedback" height="200"></canvas>
+          </div>
+          <div class="card-footer text-center" id="pieChartFeedback-footer">
+            Overall "How Did You Hear About Us"
+          </div>
         </div>
-        <div class="card-footer text-center" id="barChart-footer">
-          <!-- This label will change based on operator vs superuser -->
+      </div>
+      <!-- Pie Chart: Overall Product Category Breakdown -->
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <canvas id="pieChartCategory" height="200"></canvas>
+          </div>
+          <div class="card-footer text-center" id="pieChartCategory-footer">
+            Overall Product Category Breakdown
+          </div>
         </div>
       </div>
     </div>
-    
-    <!-- Pie Chart Card -->
-    <div class="col-md-6">
-      <div class="card shadow-sm mb-4">
-        <div class="card-body">
-          <canvas id="pieChart" height="200"></canvas>
+    <div class="row">
+      <!-- Bar Chart: Detailed Breakdown for "How Did You Hear About Us" per Showroom -->
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <canvas id="barChartFeedback" height="200"></canvas>
+          </div>
+          <div class="card-footer text-center" id="barChartFeedback-footer">
+            Detailed "How Did You Hear About Us" by Showroom
+          </div>
         </div>
-        <div class="card-footer text-center" id="pieChart-footer">
-          <!-- This label will change based on operator vs superuser -->
+      </div>
+      <!-- Bar Chart: Detailed Product Category Breakdown per Showroom -->
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <canvas id="barChartCategory" height="200"></canvas>
+          </div>
+          <div class="card-footer text-center" id="barChartCategory-footer">
+            Detailed Product Category by Showroom
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Operator Charts -->
+  <div id="operator-charts" style="display: none;">
+    <div class="row">
+      <!-- Pie Chart: "How Did You Hear About Us" -->
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <canvas id="opPieChartFeedback" height="200"></canvas>
+          </div>
+          <div class="card-footer text-center" id="opPieChartFeedback-footer">
+            "How Did You Hear About Us"
+          </div>
+        </div>
+      </div>
+      <!-- Pie Chart: Product Category Breakdown -->
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <canvas id="opPieChartCategory" height="200"></canvas>
+          </div>
+          <div class="card-footer text-center" id="opPieChartCategory-footer">
+            Product Category Breakdown
+          </div>
         </div>
       </div>
     </div>
@@ -54,151 +92,195 @@
 <!-- Load Chart.js from CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-let barChart, pieChart;
+let pieChartFeedback, pieChartCategory, barChartFeedback, barChartCategory;
+let opPieChartFeedback, opPieChartCategory;
+
+function getRandomColor() {
+    let letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
 
 function updateDashboard() {
     fetch('/feedback/dashboard-data/')
         .then(response => response.json())
         .then(data => {
-            // Check whether we're dealing with a superuser or an operator.
-            if (data.hasOwnProperty('showroom_totals')) {
-                // --- Superuser Branch ---
-                // Show the superuser totals section.
-                document.getElementById('superuser-total-section').style.display = 'block';
-                document.getElementById('operator-total-section').style.display = 'none';
+            console.log("Dashboard data:", data); // Debug log
+            if (data.is_superuser) {
+                document.getElementById('superuser-charts').style.display = 'block';
+                document.getElementById('operator-charts').style.display = 'none';
                 
-                // Update the showroom totals display.
-                let totalsHtml = data.showroom_totals.map(item => 
-                    `<strong>${item.showroom__name}:</strong> ${item.total}`
-                ).join(' | ');
-                document.getElementById('showroom-totals').innerHTML = totalsHtml;
+                // --- Pie Chart: Overall "How Did You Hear About Us" ---
+                let pfLabels = data.aggregated_feedback_data.map(item => item.how_did_you_hear);
+                let pfData = data.aggregated_feedback_data.map(item => item.count);
+                if (!pieChartFeedback) {
+                    const ctx1 = document.getElementById('pieChartFeedback').getContext('2d');
+                    pieChartFeedback = new Chart(ctx1, {
+                        type: 'pie',
+                        data: {
+                            labels: pfLabels,
+                            datasets: [{
+                                data: pfData,
+                                backgroundColor: pfLabels.map(() => getRandomColor())
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                } else {
+                    pieChartFeedback.data.labels = pfLabels;
+                    pieChartFeedback.data.datasets[0].data = pfData;
+                    pieChartFeedback.data.datasets[0].backgroundColor = pfLabels.map(() => getRandomColor());
+                    pieChartFeedback.update();
+                }
+                document.getElementById('pieChartFeedback-footer').textContent = 'Overall "How Did You Hear About Us"';
                 
-                // Prepare data for the grouped bar chart.
-                let grouped = {};
-                data.source_data.forEach(item => {
-                    let showroom = item.showroom__name;
-                    if (!grouped[showroom]) {
-                        grouped[showroom] = {};
+                // --- Pie Chart: Overall Product Category Breakdown ---
+                let pcLabels = data.aggregated_category_data.map(item => item.category);
+                let pcData = data.aggregated_category_data.map(item => item.count);
+                if (!pieChartCategory) {
+                    const ctx2 = document.getElementById('pieChartCategory').getContext('2d');
+                    pieChartCategory = new Chart(ctx2, {
+                        type: 'pie',
+                        data: {
+                            labels: pcLabels,
+                            datasets: [{
+                                data: pcData,
+                                backgroundColor: pcLabels.map(() => getRandomColor())
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                } else {
+                    pieChartCategory.data.labels = pcLabels;
+                    pieChartCategory.data.datasets[0].data = pcData;
+                    pieChartCategory.data.datasets[0].backgroundColor = pcLabels.map(() => getRandomColor());
+                    pieChartCategory.update();
+                }
+                document.getElementById('pieChartCategory-footer').textContent = 'Overall Product Category Breakdown';
+                
+                // --- Bar Chart: Detailed "How Did You Hear About Us" by Showroom ---
+                if (data.detailed_feedback_data && Object.keys(data.detailed_feedback_data).length > 0) {
+                    let detailedFB = data.detailed_feedback_data;
+                    let showrooms = Object.keys(detailedFB);
+                    let sourcesSet = new Set();
+                    showrooms.forEach(function(s) {
+                        Object.keys(detailedFB[s]).forEach(function(source) {
+                            sourcesSet.add(source);
+                        });
+                    });
+                    let sources = Array.from(sourcesSet);
+                    let barDatasetsFeedback = [];
+                    showrooms.forEach(function(s) {
+                        let counts = sources.map(source => detailedFB[s][source] || 0);
+                        barDatasetsFeedback.push({
+                            label: s,
+                            data: counts,
+                            backgroundColor: getRandomColor()
+                        });
+                    });
+                    if (!barChartFeedback) {
+                        const ctx3 = document.getElementById('barChartFeedback').getContext('2d');
+                        barChartFeedback = new Chart(ctx3, {
+                            type: 'bar',
+                            data: {
+                                labels: sources,
+                                datasets: barDatasetsFeedback
+                            },
+                            options: {
+                                responsive: true,
+                                scales: { y: { beginAtZero: true } },
+                                plugins: {
+                                    title: {
+                                        display: true,
+                                        text: 'Detailed "How Did You Hear About Us" by Showroom'
+                                    }
+                                }
+                            }
+                        });
+                    } else {
+                        barChartFeedback.data.labels = sources;
+                        barChartFeedback.data.datasets = barDatasetsFeedback;
+                        barChartFeedback.update();
                     }
-                    grouped[showroom][item.source] = item.count;
-                });
-                
-                // Collect all unique sources.
-                let allSources = Array.from(new Set(data.source_data.map(item => item.source)));
-                let datasets = [];
-                Object.keys(grouped).forEach(showroom => {
-                    let counts = allSources.map(source => grouped[showroom][source] || 0);
-                    datasets.push({
-                        label: showroom,
-                        data: counts,
-                        backgroundColor: getRandomColor(),
-                        borderColor: getRandomColor(true),
-                        borderWidth: 1
-                    });
-                });
-                
-                // Update or create the bar chart.
-                if (!barChart) {
-                    const barCtx = document.getElementById('barChart').getContext('2d');
-                    barChart = new Chart(barCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: allSources,
-                            datasets: datasets
-                        },
-                        options: {
-                            responsive: true,
-                            scales: { y: { beginAtZero: true } }
-                        }
-                    });
+                    document.getElementById('barChartFeedback-footer').textContent = 'Detailed "How Did You Hear About Us" by Showroom';
                 } else {
-                    barChart.data.labels = allSources;
-                    barChart.data.datasets = datasets;
-                    barChart.update();
-                }
-                // Update or create the pie chart for showing total counts per showroom.
-                let pieLabels = data.showroom_totals.map(item => item.showroom__name);
-                let pieData = data.showroom_totals.map(item => item.total);
-                let pieColors = pieLabels.map(() => getRandomColor());
-                if (!pieChart) {
-                    const pieCtx = document.getElementById('pieChart').getContext('2d');
-                    pieChart = new Chart(pieCtx, {
-                        type: 'pie',
-                        data: {
-                            labels: pieLabels,
-                            datasets: [{
-                                label: 'Total Feedback',
-                                data: pieData,
-                                backgroundColor: pieColors,
-                                borderColor: pieColors.map(color => shadeColor(color, -20)),
-                                borderWidth: 1,
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: { legend: { position: 'bottom' } }
-                        }
-                    });
-                } else {
-                    pieChart.data.labels = pieLabels;
-                    pieChart.data.datasets[0].data = pieData;
-                    pieChart.data.datasets[0].backgroundColor = pieColors;
-                    pieChart.data.datasets[0].borderColor = pieColors.map(color => shadeColor(color, -20));
-                    pieChart.update();
+                    console.warn("No detailed feedback data available");
                 }
                 
-                // Update footer labels.
-                document.getElementById('barChart-footer').textContent = 'Feedback by Source & Showroom';
-                document.getElementById('pieChart-footer').textContent = 'Total Feedback Distribution Across Showrooms';
+                // --- Bar Chart: Detailed Product Category Breakdown by Showroom ---
+                if (data.detailed_category_data && Object.keys(data.detailed_category_data).length > 0) {
+                    let detailedCat = data.detailed_category_data;
+                    let showroomsCat = Object.keys(detailedCat);
+                    let categoriesSet = new Set();
+                    showroomsCat.forEach(function(s) {
+                        Object.keys(detailedCat[s]).forEach(function(cat) {
+                            categoriesSet.add(cat);
+                        });
+                    });
+                    let allCategories = Array.from(categoriesSet);
+                    let barDatasetsCategory = [];
+                    showroomsCat.forEach(function(s) {
+                        let counts = allCategories.map(cat => detailedCat[s][cat] || 0);
+                        barDatasetsCategory.push({
+                            label: s,
+                            data: counts,
+                            backgroundColor: getRandomColor()
+                        });
+                    });
+                    if (!barChartCategory) {
+                        const ctx4 = document.getElementById('barChartCategory').getContext('2d');
+                        barChartCategory = new Chart(ctx4, {
+                            type: 'bar',
+                            data: {
+                                labels: allCategories,
+                                datasets: barDatasetsCategory
+                            },
+                            options: {
+                                responsive: true,
+                                scales: { y: { beginAtZero: true } },
+                                plugins: {
+                                    title: {
+                                        display: true,
+                                        text: 'Detailed Product Category Breakdown by Showroom'
+                                    }
+                                }
+                            }
+                        });
+                    } else {
+                        barChartCategory.data.labels = allCategories;
+                        barChartCategory.data.datasets = barDatasetsCategory;
+                        barChartCategory.update();
+                    }
+                    document.getElementById('barChartCategory-footer').textContent = 'Detailed Product Category Breakdown by Showroom';
+                } else {
+                    console.warn("No detailed category data available");
+                }
             } else {
-                // --- Operator Branch ---
-                document.getElementById('operator-total-section').style.display = 'block';
-                document.getElementById('superuser-total-section').style.display = 'none';
+                // Operator View: Show operator charts and hide superuser charts.
+                document.getElementById('superuser-charts').style.display = 'none';
+                document.getElementById('operator-charts').style.display = 'block';
                 
-                let labels = data.source_data.map(item => item.source);
-                let counts = data.source_data.map(item => item.count);
-                document.getElementById('total-count').textContent = data.total_count;
-                
-                // Create or update a simple bar chart.
-                if (!barChart) {
-                    const barCtx = document.getElementById('barChart').getContext('2d');
-                    barChart = new Chart(barCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Feedback Entries',
-                                data: counts,
-                                backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                                borderColor: 'rgba(54, 162, 235, 1)',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            scales: { y: { beginAtZero: true } }
-                        }
-                    });
-                } else {
-                    barChart.data.labels = labels;
-                    barChart.data.datasets[0].data = counts;
-                    barChart.update();
-                }
-                
-                // Create or update a simple pie chart.
-                let pieColors = labels.map(() => getRandomColor());
-                if (!pieChart) {
-                    const pieCtx = document.getElementById('pieChart').getContext('2d');
-                    pieChart = new Chart(pieCtx, {
+                // --- Pie Chart: "How Did You Hear About Us" for Operator's Showroom ---
+                let opFeedbackLabels = data.feedback_count_data.map(item => item.how_did_you_hear);
+                let opFeedbackData = data.feedback_count_data.map(item => item.count);
+                if (!opPieChartFeedback) {
+                    const ctx5 = document.getElementById('opPieChartFeedback').getContext('2d');
+                    opPieChartFeedback = new Chart(ctx5, {
                         type: 'pie',
                         data: {
-                            labels: labels,
+                            labels: opFeedbackLabels,
                             datasets: [{
-                                label: 'Feedback Distribution',
-                                data: counts,
-                                backgroundColor: pieColors,
-                                borderColor: pieColors.map(color => shadeColor(color, -20)),
-                                borderWidth: 1,
+                                data: opFeedbackData,
+                                backgroundColor: opFeedbackLabels.map(() => getRandomColor())
                             }]
                         },
                         options: {
@@ -207,46 +289,44 @@ function updateDashboard() {
                         }
                     });
                 } else {
-                    pieChart.data.labels = labels;
-                    pieChart.data.datasets[0].data = counts;
-                    pieChart.data.datasets[0].backgroundColor = pieColors;
-                    pieChart.data.datasets[0].borderColor = pieColors.map(color => shadeColor(color, -20));
-                    pieChart.update();
+                    opPieChartFeedback.data.labels = opFeedbackLabels;
+                    opPieChartFeedback.data.datasets[0].data = opFeedbackData;
+                    opPieChartFeedback.data.datasets[0].backgroundColor = opFeedbackLabels.map(() => getRandomColor());
+                    opPieChartFeedback.update();
                 }
-                // Update footer labels.
-                document.getElementById('barChart-footer').textContent = 'Feedback by Source';
-                document.getElementById('pieChart-footer').textContent = 'Feedback Distribution';
+                document.getElementById('opPieChartFeedback-footer').textContent = 'How Did You Hear About Us';
+                
+                // --- Pie Chart: Product Category Breakdown for Operator's Showroom ---
+                let opCategoryLabels = data.category_data.map(item => item.category);
+                let opCategoryData = data.category_data.map(item => item.count);
+                if (!opPieChartCategory) {
+                    const ctx6 = document.getElementById('opPieChartCategory').getContext('2d');
+                    opPieChartCategory = new Chart(ctx6, {
+                        type: 'pie',
+                        data: {
+                            labels: opCategoryLabels,
+                            datasets: [{
+                                data: opCategoryData,
+                                backgroundColor: opCategoryLabels.map(() => getRandomColor())
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                } else {
+                    opPieChartCategory.data.labels = opCategoryLabels;
+                    opPieChartCategory.data.datasets[0].data = opCategoryData;
+                    opPieChartCategory.data.datasets[0].backgroundColor = opCategoryLabels.map(() => getRandomColor());
+                    opPieChartCategory.update();
+                }
+                document.getElementById('opPieChartCategory-footer').textContent = 'Product Category Breakdown';
             }
         })
         .catch(error => console.error('Error fetching dashboard data:', error));
 }
 
-// Utility functions for random colors and shading.
-function getRandomColor(bright = false) {
-    let letters = '0123456789ABCDEF';
-    let color = '#';
-    for (let i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * (bright ? 6 : 16))];
-    }
-    return color;
-}
-
-function shadeColor(color, percent) {
-    let f = parseInt(color.slice(1), 16),
-        t = percent < 0 ? 0 : 255,
-        p = Math.abs(percent) / 100;
-    let R = f >> 16,
-        G = (f >> 8) & 0x00FF,
-        B = f & 0x0000FF;
-    return "#" + (
-      0x1000000 +
-      (Math.round((t - R) * p) + R) * 0x10000 +
-      (Math.round((t - G) * p) + G) * 0x100 +
-      (Math.round((t - B) * p) + B)
-    ).toString(16).slice(1);
-}
-
-// Initial update and then poll every 5 seconds.
 updateDashboard();
 setInterval(updateDashboard, 60000);
 </script>
